@@ -10,6 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      BOARD: ssc377d_fpv_wfbng
     steps:
       - name: Checkout OpenIPC firmware
         uses: actions/checkout@v4
@@ -76,9 +78,8 @@ jobs:
 
       - name: Build firmware
         run: |
-          # Try with the exact board name
-          make BOARD=ssc377d_fpv_wfbng defconfig
-          make -j$(nproc)
+          make BOARD=${{ env.BOARD }} defconfig
+          make BOARD=${{ env.BOARD }} -j$(nproc)
 
       - name: Find and verify output
         run: |
