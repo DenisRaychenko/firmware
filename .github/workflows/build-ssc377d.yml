@@ -1,0 +1,82 @@
+name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8731BU + wfb-ng + New WebUI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-ssc377d.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout OpenIPC firmware
+        uses: actions/checkout@v4
+        with:
+          repository: OpenIPC/firmware
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git wget curl unzip python3 python3-pip rsync bc cpio gzip tar xz-utils \
+            libncurses5-dev libssl-dev flex bison gettext ccache kmod
+
+      - name: Prepare defconfig for SSC377D IMX335
+        run: |
+          cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig configs/ssc377d_fpv_wfbng_defconfig
+          echo '# WiFi drivers' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_RTL8812EU_OPENIPC=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_RTL8733BU_OPENIPC=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_RTL88XXAU_OPENIPC=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '# wfb-ng' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_WFB_NG=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_WFB_NG_TOOLS=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '# Telemetry & OSD' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_MSPOSD=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_MAVLINK_ROUTER=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_MAVLINK_ROUTER_MAVLINK=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '# New WebUI (Vue.js)' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_OPENIPC_WEBUI=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '# FPV specific' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_OPENIPC_FPV=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_MAJESTIC_FONTS=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_MAJESTIC_WEBUI=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo '# Network tools' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_IW=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_WIRELESS_TOOLS=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_WPA_SUPPLICANT=y' >> configs/ssc377d_fpv_wfbng_defconfig
+          echo 'BR2_PACKAGE_WPA_SUPPLICANT_CLI=y' >> configs/ssc377d_fpv_wfbng_defconfig
+
+      - name: Build firmware
+        run: |
+          make BOARD=ssc377d_fpv_wfbng defconfig
+          make -j$(nproc)
+
+      - name: Find and verify output
+        run: |
+          find output/images -name "*.sysupgrade*" -o -name "*.tgz" -o -name "*.img" | head -20
+          ls -la output/images/
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openipc-ssc377d-imx335-wfbng-webui
+          path: |
+            output/images/*.sysupgrade*
+            output/images/*.tgz
+            output/images/*.img
+          retention-days: 7
+
+      - name: Print firmware info
+        run: |
+          echo "Build completed!"
+          echo "Download artifact from Actions tab: openipc-ssc377d-imx335-wfbng-webui"
+          echo "Flash with: sysupgrade -v openipc-ssc377d-*.sysupgrade.bin"
