@@ -71,6 +71,7 @@ BR2_PACKAGE_VTUND_OPENIPC=y
 BR2_PACKAGE_YAML_CLI=y
 
 # FPV link stack (wfb-ng) — pulls in iw, msposd, mavfwd
+BR2_PACKAGE_ADAPTIVE_LINK=y
 BR2_PACKAGE_WIFIBROADCAST_NG=y
 
 # Wi-Fi adapters
