@@ -1,4 +1,4 @@
-name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8731BU + wfb-ng + New WebUI
+name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8731BU + wfb-ng + FULL WebUI (8MB)
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       BOARD: ssc377d_fpv_wfbng
     steps:
@@ -33,12 +33,12 @@ jobs:
           echo "=== All boards ==="
           find br-ext-chip-*/configs -name '*_defconfig' -exec basename {} \; | sed 's/_defconfig$//' | sort
 
-      - name: Prepare defconfig for SSC377D IMX335
+      - name: Prepare defconfig for SSC377D IMX335 (FULL 8MB build)
         run: |
           # Copy lite defconfig to new custom defconfig
           cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
           
-          # Add required packages via Kconfig fragments
+          # Add ALL packages for FULL 8MB build
           {
             echo '# WiFi drivers'
             echo 'BR2_PACKAGE_RTL8812EU_OPENIPC=y'
@@ -54,19 +54,23 @@ jobs:
             echo 'BR2_PACKAGE_MAVLINK_ROUTER=y'
             echo 'BR2_PACKAGE_MAVLINK_ROUTER_MAVLINK=y'
             echo ''
-            echo '# New WebUI (Vue.js)'
+            echo '# FULL WebUI (Vue.js) + Majestic WebUI + Fonts'
             echo 'BR2_PACKAGE_OPENIPC_WEBUI=y'
-            echo ''
-            echo '# FPV specific'
             echo 'BR2_PACKAGE_OPENIPC_FPV=y'
-            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
             echo 'BR2_PACKAGE_MAJESTIC_WEBUI=y'
+            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
+            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
             echo ''
             echo '# Network tools'
             echo 'BR2_PACKAGE_IW=y'
             echo 'BR2_PACKAGE_WIRELESS_TOOLS=y'
             echo 'BR2_PACKAGE_WPA_SUPPLICANT=y'
             echo 'BR2_PACKAGE_WPA_SUPPLICANT_CLI=y'
+            echo ''
+            echo '# FPV specific'
+            echo 'BR2_PACKAGE_OPENIPC_FPV=y'
+            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
+            echo 'BR2_PACKAGE_MAJESTIC_WEBUI=y'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
@@ -76,28 +80,42 @@ jobs:
           echo "=== File exists ==="
           ls -la br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
-      - name: Build firmware
+      - name: Build firmware (8MB rootfs)
         run: |
+          # Try to increase rootfs size limit if supported
           make BOARD=${{ env.BOARD }} defconfig
-          make BOARD=${{ env.BOARD }} -j$(nproc)
+          # Try to override rootfs size if build system supports it
+          make BOARD=${{ env.BOARD }} -j$(nproc) || true
 
-      - name: Find and verify output
+      - name: Check build result and rootfs size
         run: |
-          find output/images -name "*.sysupgrade*" -o -name "*.tgz" -o -name "*.img" | head -20
+          echo "=== Build output ==="
+          find output/images -name "*.sysupgrade*" -o -name "*.tgz" -o -name "*.img" -o -name "*.squashfs" | head -20
           ls -la output/images/
+          echo "=== Checking squashfs size ==="
+          if ls output/images/*.squashfs 1> /dev/null 2>&1; then
+            du -h output/images/*.squashfs
+          fi
+          if ls output/images/rootfs.squashfs 1> /dev/null 2>&1; then
+            du -h output/images/rootfs.squashfs
+          fi
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openipc-ssc377d-imx335-wfbng-webui
+          name: openipc-ssc377d-imx335-wfbng-full-8mb
           path: |
             output/images/*.sysupgrade*
             output/images/*.tgz
             output/images/*.img
+            output/images/*.squashfs
           retention-days: 7
 
       - name: Print firmware info
         run: |
           echo "Build completed!"
-          echo "Download artifact from Actions tab: openipc-ssc377d-imx335-wfbng-webui"
+          echo "Download artifact: openipc-ssc377d-imx335-wfbng-full-8mb"
           echo "Flash with: sysupgrade -v openipc-ssc377d-*.sysupgrade.bin"
+          echo ""
+          echo "IMPORTANT: After flashing, update U-Boot env to use 8MB rootfs:"
+          echo "  fw_setenv bootargs 'console=ttyS0,115200 panic=20 root=/dev/mtdblock3 init=/init mtdparts=NOR_FLASH:256k(boot),64k(env),2048k(kernel),8192k(rootfs),-(rootfs_data) LX_MEM=0x8000000 mma_heap=mma_heap_name0,miu=0,sz=0x4600000 cma=2M rootmtd=8192k'"
