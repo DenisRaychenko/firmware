@@ -1,4 +1,4 @@
-name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8733BU + wfb-ng (MINIMAL FPV 5MB)
+name: Build OpenIPC SSC377D IMX335 + RTL8812AU/RTL8733BU + wfb-ng (MINIMAL FPV 5MB)
 
 on:
   workflow_dispatch:
@@ -23,7 +23,8 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git wget curl unzip python3 python3-pip rsync bc cpio gzip tar xz-utils             libncurses5-dev libssl-dev flex bison gettext ccache kmod
+          sudo apt-get install -y build-essential git wget curl unzip python3 python3-pip rsync bc cpio gzip tar xz-utils \
+            libncurses5-dev libssl-dev flex bison gettext ccache kmod
 
       - name: List available boards (debug)
         run: |
@@ -38,10 +39,9 @@ jobs:
           
           cat >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig << 'EOF'
 
-# WiFi drivers for BL-M8812EU2 (RTL8812EU) + RTL8733BU
-BR2_PACKAGE_RTL8812EU_OPENIPC=y
+# WiFi drivers for BL-M8812EU2 (RTL8812AU) + RTL8733BU
+BR2_PACKAGE_RTL8812AU_OPENIPC=y
 BR2_PACKAGE_RTL8733BU_OPENIPC=y
-BR2_PACKAGE_RTL88XXAU_OPENIPC=y
 
 # wfb-ng - WiFi Broadcast link
 BR2_PACKAGE_WFB_NG=y
