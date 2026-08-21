@@ -1,0 +1,118 @@
+name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8733BU + wfb-ng (MINIMAL FPV 5MB)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/build-ssc377d-fpv.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      BOARD: ssc377d_fpv_wfbng
+    steps:
+      - name: Checkout OpenIPC firmware
+        uses: actions/checkout@v4
+        with:
+          repository: OpenIPC/firmware
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git wget curl unzip python3 python3-pip rsync bc cpio gzip tar xz-utils             libncurses5-dev libssl-dev flex bison gettext ccache kmod
+
+      - name: List available boards (debug)
+        run: |
+          echo "=== Available boards in sigmastar ==="
+          ls -la br-ext-chip-sigmastar/configs/*_defconfig | sed 's/.*\///; s/_defconfig$//'
+          echo "=== All boards ==="
+          find br-ext-chip-*/configs -name '*_defconfig' -exec basename {} \; | sed 's/_defconfig$//' | sort
+
+      - name: Prepare MINIMAL defconfig for SSC377D IMX335 FPV
+        run: |
+          cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
+          
+          cat >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig << 'EOF'
+
+# WiFi drivers for BL-M8812EU2 (RTL8812EU) + RTL8733BU
+BR2_PACKAGE_RTL8812EU_OPENIPC=y
+BR2_PACKAGE_RTL8733BU_OPENIPC=y
+BR2_PACKAGE_RTL88XXAU_OPENIPC=y
+
+# wfb-ng - WiFi Broadcast link
+BR2_PACKAGE_WFB_NG=y
+BR2_PACKAGE_WFB_NG_TOOLS=y
+
+# Telemetry & OSD
+BR2_PACKAGE_MSPOSD=y
+BR2_PACKAGE_MAVLINK_ROUTER=y
+BR2_PACKAGE_MAVLINK_ROUTER_MAVLINK=y
+
+# WebUI - Majestic CGI WebUI (lightweight, stable)
+BR2_PACKAGE_MAJESTIC_WEBUI=y
+BR2_PACKAGE_MAJESTIC_FONTS=y
+BR2_PACKAGE_HASERL=y
+
+# Network tools (minimal)
+BR2_PACKAGE_IW=y
+
+# FPV specific
+BR2_PACKAGE_OPENIPC_FPV=y
+
+# EXPLICITLY DISABLE unnecessary packages to save space
+# BR2_PACKAGE_WPA_SUPPLICANT is not set
+# BR2_PACKAGE_WIRELESS_TOOLS is not set
+# BR2_PACKAGE_OPENIPC_WEBUI is not set
+# BR2_PACKAGE_FANCYWEB_NG is not set
+# BR2_PACKAGE_LUCI is not set
+# BR2_PACKAGE_DROPBEAR is not set
+EOF
+
+      - name: Verify defconfig created
+        run: |
+          echo "=== Created defconfig ==="
+          cat br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
+          echo "=== File exists ==="
+          ls -la br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
+
+      - name: Build firmware (5MB target)
+        run: |
+          make BOARD=${{ env.BOARD }} defconfig
+          make BOARD=${{ env.BOARD }} -j$(nproc) || true
+
+      - name: Check build result and rootfs size
+        run: |
+          echo "=== Build output ==="
+          find output/images -name "*.sysupgrade*" -o -name "*.tgz" -o -name "*.img" -o -name "*.squashfs" | head -20
+          ls -la output/images/
+          echo "=== Checking squashfs size ==="
+          if ls output/images/*.squashfs 1> /dev/null 2>&1; then
+            du -h output/images/*.squashfs
+          fi
+          if ls output/images/rootfs.squashfs 1> /dev/null 2>&1; then
+            du -h output/images/rootfs.squashfs
+          fi
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: openipc-ssc377d-imx335-wfbng-minimal-5mb
+          path: |
+            output/images/*.sysupgrade*
+            output/images/*.tgz
+            output/images/*.img
+            output/images/*.squashfs
+          retention-days: 7
+
+      - name: Print firmware info
+        run: |
+          echo "Build completed!"
+          echo "Download artifact: openipc-ssc377d-imx335-wfbng-minimal-5mb"
+          echo "Flash with: sysupgrade -v openipc-ssc377d-*.sysupgrade.bin"
+          echo ""
+          echo "IMPORTANT: After flashing, update U-Boot env to use 8MB rootfs partition:"
+          echo "  fw_setenv bootargs 'console=ttyS0,115200 panic=20 root=/dev/mtdblock3 init=/init mtdparts=NOR_FLASH:256k(boot),64k(env),2048k(kernel),8192k(rootfs),-(rootfs_data) LX_MEM=0x8000000 mma_heap=mma_heap_name0,miu=0,sz=0x4600000 cma=2M rootmtd=8192k'"
