@@ -66,3 +66,4 @@ Thank you.
 [telegram]: https://openipc.org/our-channels
 [website]: https://openipc.org
 [wiki]: https://github.com/openipc/wiki
+# trigger build
