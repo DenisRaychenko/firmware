@@ -38,12 +38,13 @@ jobs:
           # Copy lite defconfig to new custom defconfig
           cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
           
-          # Add ALL packages for FULL 8MB build
+          # Trimmed package set to fit the 5120KB squashfs cap enforced by repack
+          # for this board (the "FULL WebUI" set exceeded it by ~1MB - Vue WebUI
+          # and duplicate WiFi drivers dropped). Dropbear (SSH) is NOT touched -
+          # it stays on via the ssc377d_lite_defconfig base.
           {
-            echo '# WiFi drivers'
+            echo '# WiFi driver - real chipset on this camera (BL-M8812EU2 = RTL8812EU)'
             echo 'BR2_PACKAGE_RTL8812EU_OPENIPC=y'
-            echo 'BR2_PACKAGE_RTL8733BU_OPENIPC=y'
-            echo 'BR2_PACKAGE_RTL88XXAU_OPENIPC=y'
             echo ''
             echo '# wfb-ng'
             echo 'BR2_PACKAGE_WFB_NG=y'
@@ -51,26 +52,16 @@ jobs:
             echo ''
             echo '# Telemetry & OSD'
             echo 'BR2_PACKAGE_MSPOSD=y'
-            echo 'BR2_PACKAGE_MAVLINK_ROUTER=y'
-            echo 'BR2_PACKAGE_MAVLINK_ROUTER_MAVLINK=y'
             echo ''
-            echo '# FULL WebUI (Vue.js) + Majestic WebUI + Fonts'
-            echo 'BR2_PACKAGE_OPENIPC_WEBUI=y'
-            echo 'BR2_PACKAGE_OPENIPC_FPV=y'
+            echo '# Lightweight CGI WebUI + fonts (needed for OSD text rendering)'
             echo 'BR2_PACKAGE_MAJESTIC_WEBUI=y'
-            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
             echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
             echo ''
             echo '# Network tools'
             echo 'BR2_PACKAGE_IW=y'
-            echo 'BR2_PACKAGE_WIRELESS_TOOLS=y'
-            echo 'BR2_PACKAGE_WPA_SUPPLICANT=y'
-            echo 'BR2_PACKAGE_WPA_SUPPLICANT_CLI=y'
             echo ''
             echo '# FPV specific'
             echo 'BR2_PACKAGE_OPENIPC_FPV=y'
-            echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
-            echo 'BR2_PACKAGE_MAJESTIC_WEBUI=y'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
@@ -88,12 +79,10 @@ jobs:
           chmod 700 general/overlay/etc/dropbear
           chmod 600 general/overlay/etc/dropbear/authorized_keys
 
-      - name: Build firmware (8MB rootfs)
+      - name: Build firmware (5120KB squashfs cap)
         run: |
-          # Try to increase rootfs size limit if supported
           make BOARD=${{ env.BOARD }} defconfig
-          # Try to override rootfs size if build system supports it
-          make BOARD=${{ env.BOARD }} -j$(nproc) || true
+          make BOARD=${{ env.BOARD }} -j$(nproc)
 
       - name: Check build result and rootfs size
         run: |
