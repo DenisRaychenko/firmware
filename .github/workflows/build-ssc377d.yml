@@ -82,10 +82,11 @@ jobs:
 
       - name: Inject ground-station SSH public key into rootfs overlay
         run: |
-          mkdir -p general/overlay/root/.ssh
-          echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOgPF7Mzmt1s/lkfRLOkl6H4sAM1jWKjdJYrKc8k2Qy chechen-local' > general/overlay/root/.ssh/authorized_keys
-          chmod 700 general/overlay/root/.ssh
-          chmod 600 general/overlay/root/.ssh/authorized_keys
+          # general/overlay/root/.ssh is a symlink to /etc/dropbear (dropbear's key dir)
+          mkdir -p general/overlay/etc/dropbear
+          echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOgPF7Mzmt1s/lkfRLOkl6H4sAM1jWKjdJYrKc8k2Qy chechen-local' > general/overlay/etc/dropbear/authorized_keys
+          chmod 700 general/overlay/etc/dropbear
+          chmod 600 general/overlay/etc/dropbear/authorized_keys
 
       - name: Build firmware (8MB rootfs)
         run: |
