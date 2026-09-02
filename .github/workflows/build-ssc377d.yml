@@ -80,6 +80,13 @@ jobs:
           echo "=== File exists ==="
           ls -la br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
+      - name: Inject ground-station SSH public key into rootfs overlay
+        run: |
+          mkdir -p general/overlay/root/.ssh
+          echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOgPF7Mzmt1s/lkfRLOkl6H4sAM1jWKjdJYrKc8k2Qy chechen-local' > general/overlay/root/.ssh/authorized_keys
+          chmod 700 general/overlay/root/.ssh
+          chmod 600 general/overlay/root/.ssh/authorized_keys
+
       - name: Build firmware (8MB rootfs)
         run: |
           # Try to increase rootfs size limit if supported
