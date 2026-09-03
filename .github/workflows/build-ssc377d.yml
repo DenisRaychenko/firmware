@@ -144,6 +144,22 @@ jobs:
           make BOARD=${{ env.BOARD }} defconfig
           make BOARD=${{ env.BOARD }} build -j$(nproc)
 
+      - name: Drop the CA cert bundle directly from the built target
+        run: |
+          # BR2_PACKAGE_CA_CERTIFICATES is not a real Kconfig symbol in this repo either
+          # (same class of mistake as RTL8812EU_OPENIPC/WFB_NG earlier - the negation line
+          # sat in the defconfig and did nothing, confirmed: byte-identical rootfs size with
+          # and without it). We only ever curl http://localhost - never the online https://
+          # update path - so nothing needs it.
+          #
+          # Repack doesn't reuse output/target - it re-derives its own squashfs-specific
+          # target tree by rsyncing straight from every package's own
+          # output/per-package/<pkg>/target/ (confirmed from an earlier repack's own log:
+          # "rsync ... per-package/dropbear-openipc/target/ ... output/target"), so deleting
+          # only the merged output/target copy would get silently re-introduced when Repack
+          # re-merges. Delete it everywhere it appears instead.
+          find output/target output/per-package -path '*/target/etc/ssl/certs/ca-certificates.crt' -print -delete 2>&1 || true
+
       - name: Size report (what is actually taking the space)
         run: |
           make BOARD=${{ env.BOARD }} size-report || true
