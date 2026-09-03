@@ -124,6 +124,12 @@ jobs:
             echo '# was silently running without its sensor config. Fixed directly on the camera'
             echo '# too, independent of this rebuild.'
             echo 'BR2_OPENIPC_SNS_MODEL="imx335"'
+            echo ''
+            echo '# 200KB CA bundle, pulled in for libcurl'"'"'s TLS validation of https:// URLs.'
+            echo '# We only ever use curl for http://localhost (majestic'"'"'s own config API,'
+            echo '# wifibroadcast-ng'"'"'s files/wifibroadcast script) and flash via a local'
+            echo '# sysupgrade --archive=, never the online-update https:// path.'
+            echo '# BR2_PACKAGE_CA_CERTIFICATES is not set'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
