@@ -113,6 +113,17 @@ jobs:
             echo '# root (confirmed: a bare relative filename here failed with "Kconfig file or'
             echo '# fragment ... does not exist" even though the file is right there at the top).'
             echo "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"$PWD/openipc-fpv-trim.fragment\""
+            echo ''
+            echo '# sigmastar-osdrv-infinity6c ships /etc/sensors/*.bin for every sensor this'
+            echo '# SoC family supports (gc4653/imx335/imx415/os04a10/sc401ai/sc830ai) unless'
+            echo '# told which one to keep. This camera has only ever used imx335 (confirmed'
+            echo '# live: /etc/majestic.yaml sensorConfig: /etc/sensors/imx335.bin) - also fixes'
+            echo '# a latent bug found while checking this: the live camera'"'"'s majestic.yaml'
+            echo '# pointed at /etc/sensors/imx335_infinity6c.bin, a file that has never existed'
+            echo '# in this package (it only ever ships bare imx335.bin) - AE/AWB calibration'
+            echo '# was silently running without its sensor config. Fixed directly on the camera'
+            echo '# too, independent of this rebuild.'
+            echo 'BR2_OPENIPC_SNS_MODEL="imx335"'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
