@@ -108,8 +108,11 @@ jobs:
             echo '# BR2_PACKAGE_IPCTOOL is not set'
             echo ''
             echo '# Trim the vendor kernel'"'"'s unconditional NFS/SunRPC/WireGuard modules (see the'
-            echo '# comment above where the fragment file is written)'
-            echo 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="openipc-fpv-trim.fragment"'
+            echo '# comment above where the fragment file is written). Must be an absolute path -'
+            echo '# the existence check that consumes this runs from a different cwd than the repo'
+            echo '# root (confirmed: a bare relative filename here failed with "Kconfig file or'
+            echo '# fragment ... does not exist" even though the file is right there at the top).'
+            echo "BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES=\"$PWD/openipc-fpv-trim.fragment\""
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
