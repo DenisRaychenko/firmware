@@ -1,0 +1,39 @@
+name: Build alink_drone for musl (ssc377d)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout adaptive-link source
+        uses: actions/checkout@v4
+        with:
+          repository: OpenIPC/adaptive-link
+          path: adaptive-link
+
+      - name: Download the sigmastar infinity6c musl toolchain
+        run: |
+          curl -sL -o toolchain.tgz "https://github.com/openipc/firmware/releases/download/toolchain/toolchain.sigmastar-infinity6c.tgz"
+          mkdir -p toolchain
+          tar xf toolchain.tgz -C toolchain
+          find toolchain -maxdepth 3 -iname "*gcc" -o -iname "*-gcc*" | head -20
+
+      - name: Build alink_drone with the musl cross-compiler
+        run: |
+          CC=$(find toolchain -type f -iname "arm-openipc-linux-musleabihf-gcc" | head -1)
+          echo "Using CC=$CC"
+          [ -n "$CC" ] || { echo "Cross compiler not found"; exit 1; }
+          cd adaptive-link
+          make CC="$CC" OPT="-O2 -lm -lpthread"
+          file ./alink_drone
+          ls -la ./alink_drone
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alink_drone-musl-ssc377d
+          path: adaptive-link/alink_drone
+          retention-days: 7
