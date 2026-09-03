@@ -38,6 +38,19 @@ jobs:
           # Copy lite defconfig to new custom defconfig
           cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
+          # ssc377d_lite_defconfig ships BR2_OPENIPC_FLASH_SIZE="8", which the top-level
+          # Makefile's repack rule reads as "cap the squashfs at 5120KB". `cat /proc/mtd` on
+          # the real camera says otherwise: mtd3 "rootfs" is 0x800000 = 8192KB on its own, and
+          # summing every partition (boot 256K + env 64K + kernel 2048K + rootfs 8192K +
+          # rootfs_data 5824K) gives a 16MB chip, not 8MB. This is a stale/wrong value for this
+          # specific board's real hardware, not a real 5120KB ceiling we need to fit under -
+          # every package trim so far (NFS/WireGuard kernel modules, extra sensor blobs, unused
+          # audio-adjacent packages) was fighting a phantom limit. FLASH_SIZE only feeds this
+          # build-time repack size check, not the live device's already-fixed partition table
+          # (that comes from U-Boot's own mtdparts bootarg, set independently of what firmware
+          # was built with) - overriding it here is safe.
+          sed -i 's/BR2_OPENIPC_FLASH_SIZE="8"/BR2_OPENIPC_FLASH_SIZE="16"/' br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
+
           # The vendor kernel config (br-ext-chip-sigmastar/board/infinity6c/infinity6c-ssc027a.config)
           # builds NFS-client + SunRPC + WireGuard as modules unconditionally - none of it is a
           # Buildroot package toggle, so it can't be turned off from the defconfig additions below.
