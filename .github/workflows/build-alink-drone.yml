@@ -23,7 +23,7 @@ jobs:
 
       - name: Build alink_drone with the musl cross-compiler
         run: |
-          CC=$(find toolchain \( -type f -o -type l \) -iname "arm-openipc-linux-musleabihf-gcc" | head -1)
+          CC=$(realpath "$(find toolchain \( -type f -o -type l \) -iname "arm-openipc-linux-musleabihf-gcc" | head -1)")
           echo "Using CC=$CC"
           [ -n "$CC" ] || { echo "Cross compiler not found"; exit 1; }
           cd adaptive-link
