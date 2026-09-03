@@ -83,10 +83,18 @@ jobs:
           chmod 700 general/overlay/etc/dropbear
           chmod 600 general/overlay/etc/dropbear/authorized_keys
 
-      - name: Build firmware (5120KB squashfs cap)
+      - name: Build firmware (without repack, so we can size-report first)
         run: |
           make BOARD=${{ env.BOARD }} defconfig
-          make BOARD=${{ env.BOARD }} -j$(nproc)
+          make BOARD=${{ env.BOARD }} build -j$(nproc)
+
+      - name: Size report (what is actually taking the space)
+        run: |
+          make BOARD=${{ env.BOARD }} size-report || true
+
+      - name: Repack
+        run: |
+          make BOARD=${{ env.BOARD }} repack-final
 
       - name: Check build result and rootfs size
         run: |
