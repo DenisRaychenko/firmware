@@ -43,8 +43,11 @@ jobs:
           # and duplicate WiFi drivers dropped). Dropbear (SSH) is NOT touched -
           # it stays on via the ssc377d_lite_defconfig base.
           {
-            echo '# WiFi driver - real chipset on this camera (BL-M8812EU2 = RTL8812EU)'
-            echo 'BR2_PACKAGE_RTL8812EU_OPENIPC=y'
+            echo '# WiFi driver - real chipset on this camera (BL-M8812EU2 = RTL8812EU family).'
+            echo '# RTL8812EU_OPENIPC does not exist as a Kconfig symbol in this repo - it was'
+            echo '# silently ignored by a prior build, producing no driver module at all.'
+            echo '# The correct package for this chipset is rtl88x2eu-openipc.'
+            echo 'BR2_PACKAGE_RTL88X2EU_OPENIPC=y'
             echo ''
             echo '# wfb-ng'
             echo 'BR2_PACKAGE_WFB_NG=y'
