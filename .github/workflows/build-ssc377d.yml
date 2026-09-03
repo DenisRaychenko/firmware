@@ -91,14 +91,6 @@ jobs:
           echo "=== File exists ==="
           ls -la br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
-      - name: Inject ground-station SSH public key into rootfs overlay
-        run: |
-          # general/overlay/root/.ssh is a symlink to /etc/dropbear (dropbear's key dir)
-          mkdir -p general/overlay/etc/dropbear
-          echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINOgPF7Mzmt1s/lkfRLOkl6H4sAM1jWKjdJYrKc8k2Qy chechen-local' > general/overlay/etc/dropbear/authorized_keys
-          chmod 700 general/overlay/etc/dropbear
-          chmod 600 general/overlay/etc/dropbear/authorized_keys
-
       - name: Build firmware (without repack, so we can size-report first)
         run: |
           make BOARD=${{ env.BOARD }} defconfig
