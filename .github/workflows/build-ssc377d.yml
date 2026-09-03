@@ -37,7 +37,20 @@ jobs:
         run: |
           # Copy lite defconfig to new custom defconfig
           cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
-          
+
+          # The vendor kernel config (br-ext-chip-sigmastar/board/infinity6c/infinity6c-ssc027a.config)
+          # builds NFS-client + SunRPC + WireGuard as modules unconditionally - none of it is a
+          # Buildroot package toggle, so it can't be turned off from the defconfig additions below.
+          # This project uses neither (no NFS mounts, no WireGuard tunnels - ground<->air uses
+          # wfb_tun instead), and together they're ~600KB of the squashfs overage. Layer a small
+          # fragment on top via BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES instead of editing the
+          # vendor file directly.
+          cat > openipc-fpv-trim.fragment << 'EOF'
+          # CONFIG_NFS_FS is not set
+          # CONFIG_SUNRPC is not set
+          # CONFIG_WIREGUARD is not set
+          EOF
+
           # Trimmed package set to fit the 5120KB squashfs cap enforced by repack
           # for this board (the "FULL WebUI" set exceeded it by ~1MB - Vue WebUI
           # and duplicate WiFi drivers dropped). Dropbear (SSH) is NOT touched -
@@ -91,6 +104,12 @@ jobs:
             echo '# BR2_PACKAGE_OPUS_OPENIPC_FIXED_POINT is not set'
             echo '# BR2_PACKAGE_LIBOGG_OPENIPC is not set'
             echo '# BR2_PACKAGE_VTUND_OPENIPC is not set'
+            echo '# ipctool - a diagnostic CLI for the SigmaStar IPC, not used by any script here'
+            echo '# BR2_PACKAGE_IPCTOOL is not set'
+            echo ''
+            echo '# Trim the vendor kernel'"'"'s unconditional NFS/SunRPC/WireGuard modules (see the'
+            echo '# comment above where the fragment file is written)'
+            echo 'BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="openipc-fpv-trim.fragment"'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
       - name: Verify defconfig created
