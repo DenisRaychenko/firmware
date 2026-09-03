@@ -21,6 +21,11 @@ jobs:
           tar xf toolchain.tgz -C toolchain
           find toolchain -maxdepth 3 -iname "*gcc" -o -iname "*-gcc*" | head -20
 
+      - name: Force unbuffered stdout so we can actually see where it dies
+        run: |
+          sed -i 's/int main(int argc, char \*argv\[\]) {/int main(int argc, char *argv[]) {\n    setvbuf(stdout, NULL, _IONBF, 0);/' adaptive-link/alink_drone.c
+          grep -n -A1 "^int main" adaptive-link/alink_drone.c
+
       - name: Build alink_drone with the musl cross-compiler
         run: |
           CC="$PWD/$(find toolchain \( -type f -o -type l \) -iname "arm-openipc-linux-musleabihf-gcc" | head -1)"
