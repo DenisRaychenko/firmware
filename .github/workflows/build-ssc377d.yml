@@ -108,6 +108,7 @@ jobs:
       - name: Size report (what is actually taking the space)
         run: |
           make BOARD=${{ env.BOARD }} size-report || true
+          cat output/images/sizes.ssc377d-lite.json | python3 -m json.tool || cat output/images/sizes.ssc377d-lite.json
 
       - name: Repack
         run: |
