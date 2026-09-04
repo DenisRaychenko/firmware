@@ -1,0 +1,70 @@
+From c51b6fe7adc9faaca353e9831f9e5291afe2133f Mon Sep 17 00:00:00 2001
+From: Denis Raychenko <denis.raychenko@gmail.com>
+Date: Fri, 4 Sep 2026 06:21:25 +0000
+Subject: [PATCH] star6c (infinity6c): use ARGB1555 instead of broken I4
+ palette, fix alpha threshold
+
+On ssc377d/infinity6c, the I4 palette-indexed compositing path (the
+SoC-specific default in InitMSPHook()) renders OSD text as a washed-out
+purple/magenta instead of its real colors. This is downstream of msposd
+in the closed SigmaStar mi_rgn/mi_sys vendor blob that composites the
+I4 palette onto YUV video - confirmed by an independent from-scratch
+rebuild of this exact source still reproducing the same purple shift
+through a different internal init path, ruling out anything in this
+repo as the cause.
+
+The already-present (but commented out) ARGB1555 fallback for
+__INFINITY6C__ avoids the broken path entirely and renders correct
+colors. It initially rendered glyphs as hollow outlines only, traced to
+convertRGBAToARGB1555()'s alpha threshold (a > 199) discarding most of
+the font PNG's anti-aliased fill pixels down to fully transparent -
+lowered to a > 20 so real coverage stays visible.
+
+Combined, these two changes are the complete, user-confirmed color fix
+on real hardware (ssc377d + BL-M8812EU2, msposd built via the star6c
+Makefile target).
+---
+ bmp/bitmap.c |  8 +++++---
+ osd.c        | 10 +++-------
+ 2 files changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/bmp/bitmap.c b/bmp/bitmap.c
+index bb44aa0..e16b9a7 100644
+--- a/bmp/bitmap.c
++++ b/bmp/bitmap.c
+@@ -1715,9 +1715,11 @@ void convertRGBAToARGB1555(
+ 			// Convert to ARGB1555 format
+ 			uint16_t pixel = 0;
+ 
+-			// Set alpha bit (1 bit)
+-			if (a > 199) {		 // Assuming any alpha value above 127 is considered
+-								 // opaque Needs  to be higher
++			// Set alpha bit (1 bit) - low threshold: ARGB1555 has no partial
++			// alpha, so any real coverage should stay visible instead of
++			// being dropped to fully transparent (was > 199, way too high,
++			// silently discarded most of the glyph fill, leaving only edges)
++			if (a > 20) {
+ 				pixel |= 0x8000; // Set the alpha bit (1 << 15)
+ 			}
+ 
+diff --git a/osd.c b/osd.c
+index 5b6f24b..878b770 100644
+--- a/osd.c
++++ b/osd.c
+@@ -2754,13 +2754,9 @@ static void InitMSPHook() {
+ 	PIXEL_FORMAT_BitsPerPixel = 4;
+ 
+ #ifdef __INFINITY6C__
+-	//if I4 is not supported ?? uncomment these for slower rendering
+-	//PIXEL_FORMAT_DEFAULT = PIXEL_FORMAT_1555; // ARGB1555 format, 16 bits per pixel
+-	//PIXEL_FORMAT_BitsPerPixel = 16;
+-
+-	//PIXEL_FORMAT_DEFAULT = PIXEL_FORMAT_I4; // PIXEL_FORMAT_I4 format, 4 bits per pixel
+-	//PIXEL_FORMAT_BitsPerPixel = 4;
+-#endif	
++	PIXEL_FORMAT_DEFAULT = PIXEL_FORMAT_1555; // ARGB1555 format, 16 bits per pixel
++	PIXEL_FORMAT_BitsPerPixel = 16;
++#endif
+ 
+ #endif
+ #if defined(_x86) || defined(__ROCKCHIP__)
