@@ -1,4 +1,4 @@
-name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8731BU + wfb-ng + FULL WebUI (8MB)
+name: Build OpenIPC SSC377D IMX335 + RTL8812EU/RTL8731BU + wfb-ng + Adaptive Link (16MB)
 
 on:
   workflow_dispatch:
@@ -33,7 +33,7 @@ jobs:
           echo "=== All boards ==="
           find br-ext-chip-*/configs -name '*_defconfig' -exec basename {} \; | sed 's/_defconfig$//' | sort
 
-      - name: Prepare defconfig for SSC377D IMX335 (FULL 8MB build)
+      - name: Prepare defconfig for SSC377D IMX335 (16MB + Adaptive Link)
         run: |
           # Copy lite defconfig to new custom defconfig
           cp br-ext-chip-sigmastar/configs/ssc377d_lite_defconfig br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
@@ -85,6 +85,9 @@ jobs:
             echo ''
             echo '# Telemetry & OSD'
             echo 'BR2_PACKAGE_MSPOSD=y'
+            echo ''
+            echo '# Adaptive Link is a native OpenIPC Buildroot package.'
+            echo 'BR2_PACKAGE_ADAPTIVE_LINK=y'
             echo ''
             echo '# Fonts only (needed for OSD text rendering)'
             echo 'BR2_PACKAGE_MAJESTIC_FONTS=y'
@@ -155,6 +158,11 @@ jobs:
             echo '# BR2_PACKAGE_CA_CERTIFICATES is not set'
           } >> br-ext-chip-sigmastar/configs/ssc377d_fpv_wfbng_defconfig
 
+          # Start Adaptive Link at the end of boot, after wifibroadcast has created
+          # its tunnel and detected the BL-M8812EU2 profile.
+          sed -i '/alink_drone &/d' general/overlay/etc/rc.local
+          sed -i -e '$i alink_drone &' general/overlay/etc/rc.local
+
       - name: Verify defconfig created
         run: |
           echo "=== Created defconfig ==="
@@ -166,6 +174,26 @@ jobs:
         run: |
           make BOARD=${{ env.BOARD }} defconfig
           make BOARD=${{ env.BOARD }} build -j$(nproc)
+
+      - name: Configure and verify Adaptive Link
+        run: |
+          ALINK_TARGET="$PWD/output/per-package/adaptive-link/target"
+          test -x "$ALINK_TARGET/usr/bin/alink_drone"
+          test -s "$ALINK_TARGET/etc/alink.conf"
+          test -s "$ALINK_TARGET/etc/txprofiles.conf"
+          test -s "$ALINK_TARGET/etc/wlan_adapters.yaml"
+
+          # Level 3 is a conservative starting point for BL-M8812EU2; Adaptive Link
+          # still changes bitrate/MCS/FEC dynamically from the GS heartbeat.
+          sed -i 's/^power_level_0_to_4=.*/power_level_0_to_4=3/' "$ALINK_TARGET/etc/alink.conf"
+          sed -i 's/^osd_level=.*/osd_level=4/' "$ALINK_TARGET/etc/alink.conf"
+
+          # Adaptive Link heartbeat reaches the camera through the wfb-ng tunnel.
+          find output/per-package output/target -path '*/target/etc/datalink.conf' -exec sed -i 's/^tunnel=.*/tunnel=true/' {} +
+
+          grep '^power_level_0_to_4=3$' "$ALINK_TARGET/etc/alink.conf"
+          grep '^osd_level=4$' "$ALINK_TARGET/etc/alink.conf"
+          grep -n 'alink_drone &' general/overlay/etc/rc.local
 
       - name: Drop the CA cert bundle directly from the built target
         run: |
@@ -208,7 +236,7 @@ jobs:
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
         with:
-          name: openipc-ssc377d-imx335-wfbng-full-8mb
+          name: openipc-ssc377d-imx335-wfbng-alink-16mb
           path: |
             output/images/*.sysupgrade*
             output/images/*.tgz
@@ -219,8 +247,8 @@ jobs:
       - name: Print firmware info
         run: |
           echo "Build completed!"
-          echo "Download artifact: openipc-ssc377d-imx335-wfbng-full-8mb"
+          echo "Download artifact: openipc-ssc377d-imx335-wfbng-alink-16mb"
           echo "Flash with: sysupgrade -v openipc-ssc377d-*.sysupgrade.bin"
           echo ""
-          echo "IMPORTANT: After flashing, update U-Boot env to use 8MB rootfs:"
-          echo "  fw_setenv bootargs 'console=ttyS0,115200 panic=20 root=/dev/mtdblock3 init=/init mtdparts=NOR_FLASH:256k(boot),64k(env),2048k(kernel),8192k(rootfs),-(rootfs_data) LX_MEM=0x8000000 mma_heap=mma_heap_name0,miu=0,sz=0x4600000 cma=2M rootmtd=8192k'"
+          echo "Keep the camera's existing 16MiB NOR partition table unchanged."
+          echo "Do not rewrite mtdparts/rootmtd after flashing."
